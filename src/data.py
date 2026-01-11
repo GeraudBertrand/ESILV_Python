@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import re
 from typing import List, Dict, Any
@@ -6,6 +7,7 @@ from requester import Requester
 
 class DataManager :
 
+    csv_file_path: str
     CERTFRs: List[Any]
     CVEs : List[str]
 
@@ -14,37 +16,54 @@ class DataManager :
     def __init__(self, csv_file=None) -> None:
         self.CERTFRs = []
         self.CVEs = []
+
+        self.csv_file_path = csv_file if (csv_file is not None and isinstance(csv_file, str)) else "data.csv"
         try :
-            if(csv_file is not None and isinstance(csv_file, str)):
-                self.Data = pd.read_csv(csv_file)
-            else :
-                self.Data = pd.read_csv("data.csv")
+            # read using semicolon separator to match data.csv
+            self.Data = pd.read_csv(self.csv_file_path, sep=';')
         except :
             self.Data = pd.DataFrame()
 
     def Step(self, url:str):
         """
-        Action to read data from url and set into db 
+        Action to read data from url and set into db
         """
-        # Récupère tout les CERTFR depuis l'url donnée, list de "Dict" 
+        # Récupère tout les CERTFR depuis l'url donnée, list de "Dict"
         self.GetAllCERTFR(url)
 
         new_lines = []
         for entry in self.CERTFRs :
             cves = self.GetAllCVE(entry)
             if not cves:
-                new_lines.append({
-                    "Titre ANSS" : entry.title
-                })
+                new_lines.append(self.CreateRow(entry))
             else :
                 for cve in cves :
                     new_lines.append(self.CreateRow(entry, cve))
         if new_lines:
             df_new = pd.DataFrame(new_lines)
-            self.Data = pd.concat([self.Data, df_new], ignore_index=True)
-            # Nettoyage des doublons potentiels (par exemple sur l'ID et la CVE)
-            #self.Data.drop_duplicates(subset=["certfr_id", "cve_id"], inplace=True)
-         
+
+            if not self.Data.empty and set(["ID ANSSI", "CVE"]).issubset(self.Data.columns):
+                existing_pairs = set()
+                for _, r in self.Data[["ID ANSSI", "CVE"]].dropna().iterrows():
+                    existing_pairs.add((r["ID ANSSI"], r["CVE"]))
+
+                def is_new_row(r):
+                    return (r.get("ID ANSSI"), r.get("CVE")) not in existing_pairs
+
+                df_to_append = df_new[df_new.apply(is_new_row, axis=1)]
+            else:
+                df_to_append = df_new
+
+            self.EnrichAllCVE(df_to_append)
+            if not df_to_append.empty:
+                write_header = not os.path.exists(self.csv_file_path) or os.path.getsize(self.csv_file_path) == 0
+                df_to_append.to_csv(self.csv_file_path, sep=';', index=False, mode='a', header=write_header)
+
+                if self.Data.empty:
+                    self.Data = df_to_append.reset_index(drop=True)
+                else:
+                    self.Data = pd.concat([self.Data, df_to_append], ignore_index=True)
+
     def GetAllCERTFR(self, url: str) -> List[Any]:
         self.CERTFRs = Requester(url).request()
         return self.CERTFRs
@@ -59,7 +78,7 @@ class DataManager :
             print(f"Une erreur est apparu : {e}")
             return []
 
-    def CreateRow(self, certfr, cve) :
+    def CreateRow(self, certfr, cve = None) :
         id_data,type_data = self.extract_info(certfr.link) 
         return {
             "ID ANSSI":id_data,
@@ -72,7 +91,7 @@ class DataManager :
             "CWE":None,
             "EPSS":None,
             "Lien":certfr.link,
-            "Description":certfr.description,
+            "Description": self.sanitize_desc(certfr.description),
         }
 
     def extract_info(self, link: str):
@@ -90,15 +109,15 @@ class DataManager :
         
         return None, None
     
-    def EnrichAllCVE(self):
+    def EnrichAllCVE(self, df: pd.DataFrame):
         """
         Parcourt le DataFrame et enrichit chaque ligne avec les données API.
         """
-        print(f"Début de l'enrichissement pour {len(self.Data)} lignes...")
-        self.Data['Base Severity'] = self.Data['Base Severity'].astype(object)
-        self.Data['CWE'] = self.Data['CWE'].astype(object)
-        self.Data['EPSS'] = self.Data['EPSS'].astype(object)
-        for index, row in self.Data.iterrows():
+        print(f"Début de l'enrichissement pour {len(df)} lignes...")
+        df['Base Severity'] = df['Base Severity'].astype(object)
+        df['CWE'] = df['CWE'].astype(object)
+        df['EPSS'] = df['EPSS'].astype(object)
+        for index, row in df.iterrows():
             cve_id = row['CVE']
             if pd.isna(cve_id) or cve_id == "Non disponible":
                 continue
@@ -112,20 +131,20 @@ class DataManager :
             epss_score = self.get_epss_data(cve_id)
 
             # Mise à jour du DataFrame
-            self.Data.at[index, 'CVSS'] = mitre_data.get('cvss')
-            self.Data.at[index, 'Base Severity'] = self.get_severity_label(mitre_data.get('cvss'))
-            self.Data.at[index, 'CWE'] = mitre_data.get('cwe')
-            self.Data.at[index, 'EPSS'] = epss_score
+            df.at[index, 'CVSS'] = mitre_data.get('cvss')
+            df.at[index, 'Base Severity'] = self.get_severity_label(mitre_data.get('cvss'))
+            df.at[index, 'CWE'] = mitre_data.get('cwe')
+            df.at[index, 'EPSS'] = epss_score
             if mitre_data.get('description'):
-                self.Data.at[index, 'Description'] = mitre_data.get('description')
+                df.at[index, 'Description'] = self.sanitize_desc(mitre_data.get('description'))
 
             #Rate Limiting 
             time.sleep(2) 
 
         # resumé des données enrichies 
-        #print(self.Data[['CVE', 'Base Severity', 'CWE', 'EPSS']].head())
-        #print(self.Data.describe())
-        #print(self.Data['Base Severity'].value_counts())
+        #print(df[['CVE', 'Base Severity', 'CWE', 'EPSS']].head())
+        #print(df.describe())
+        #print(df['Base Severity'].value_counts())
 
     def get_mitre_data(self, cve_id: str) -> Dict[str, Any]:
         """Récupère CVSS, CWE et Description depuis l'API MITRE."""
@@ -182,6 +201,17 @@ class DataManager :
         if score >= 7.0: return "High"
         if score >= 4.0: return "Medium"
         return "Low"
+
+
+    def sanitize_desc(self, text: str) -> str :
+        if( text is None) :
+            return text
+        try:
+            s = str(text)
+            s = s.replace('\r', ' ').replace('\n', ' ')
+            s = re.sub(r"\s+", ' ', s).strip()
+        except Exception:
+            return text
 
     def GetDataFrame(self) -> pd.DataFrame:
         return self.Data
