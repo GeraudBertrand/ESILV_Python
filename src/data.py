@@ -8,6 +8,7 @@ from mail import Mail
 
 class DataManager :
 
+    sleep_rate = 1  # seconds
     csv_file_path: str
     CERTFRs: List[Any]
     CVEs : List[str]
@@ -24,13 +25,6 @@ class DataManager :
             self.Data = pd.read_csv(self.csv_file_path, sep=';')
         except :
             self.Data = pd.DataFrame()
-
-    def Step(self, url:str):
-        """
-        Action to read data from url and set into db
-        """
-        # Récupère tout les CERTFR depuis l'url donnée, list de "Dict"
-        self.GetAllCERTFR(url)
 
     def InsertNewData(self) -> list[dict[str, Any]] :
         new_lines = []
@@ -99,6 +93,9 @@ class DataManager :
             "EPSS":None,
             "Lien":certfr.link,
             "Description": self.sanitize_desc(certfr.description),
+            "Éditeur" : [],
+            "Produits" : [],
+            "Versions" : []
         }
 
     def extract_info(self, link: str):
@@ -120,16 +117,26 @@ class DataManager :
         """
         Parcourt le DataFrame et enrichit chaque ligne avec les données API.
         """
-        print(f"Début de l'enrichissement pour {len(df)} lignes...")
+        total_rows = len(df)
+        if total_rows == 0:
+            print("Aucune nouvelle ligne à enrichir.")
+            return
+        print(f"Début de l'enrichissement pour {total_rows} lignes...")
+
         df['Base Severity'] = df['Base Severity'].astype(object)
         df['CWE'] = df['CWE'].astype(object)
         df['EPSS'] = df['EPSS'].astype(object)
-        for index, row in df.iterrows():
+        df['Produits'] = df['Produits'].astype(object)
+        df['Éditeur'] = df['Éditeur'].astype(object)
+        df['Versions'] = df['Versions'].astype(object)
+        for i, (index, row) in enumerate(df.iterrows()):
+            progression = ((i + 1) / total_rows) * 100
+
             cve_id = row['CVE']
             if pd.isna(cve_id) or cve_id == "Non disponible":
                 continue
 
-            print(f"Enrichissement de {cve_id}...")
+            print(f"[{progression:.1f}%] Enrichissement de {cve_id}...")
 
             # 1. Récupération des données MITRE (CVSS et CWE)
             mitre_data = self.get_mitre_data(cve_id)
@@ -139,7 +146,7 @@ class DataManager :
 
             # Mise à jour du DataFrame
             df.at[index, 'CVSS'] = mitre_data.get('cvss')
-            df.at[index, 'Produit'] = mitre_data.get('product')
+            df.at[index, 'Produits'] = mitre_data.get('product')
             df.at[index, 'Éditeur'] = mitre_data.get('vendor')
             df.at[index, 'Versions'] = mitre_data.get('version')
             df.at[index, 'Base Severity'] = self.get_severity_label(mitre_data.get('cvss'))
@@ -149,7 +156,7 @@ class DataManager :
                 df.at[index, 'Description'] = self.sanitize_desc(mitre_data.get('description'))
 
             #Rate Limiting 
-            time.sleep(2) 
+            time.sleep(self.sleep_rate) 
 
         # resumé des données enrichies
         #print(df[['CVE', 'Base Severity', 'CWE', 'EPSS']].head())
@@ -202,13 +209,6 @@ class DataManager :
                 
         except Exception as e:
             print(f"Erreur MITRE pour {cve_id}: {e}")
-        
-        if isinstance(res.get('product'), list):
-            res['product'] = ', '.join(dict.fromkeys([p for p in res['product'] if p]))
-        if isinstance(res.get('vendor'), list):
-            res['vendor'] = ', '.join(dict.fromkeys([v for v in res['vendor'] if v]))
-        if isinstance(res.get('version'), list):
-            res['version'] = ', '.join(dict.fromkeys([v for v in res['version'] if v]))
 
         return res
 
