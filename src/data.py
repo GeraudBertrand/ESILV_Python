@@ -1,9 +1,10 @@
 import os
 import pandas as pd
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import time
 from requester import Requester
+from mail import Mail
 
 class DataManager :
 
@@ -31,6 +32,7 @@ class DataManager :
         # Récupère tout les CERTFR depuis l'url donnée, list de "Dict"
         self.GetAllCERTFR(url)
 
+    def InsertNewData(self) -> list[dict[str, Any]] :
         new_lines = []
         for entry in self.CERTFRs :
             cves = self.GetAllCVE(entry)
@@ -39,30 +41,35 @@ class DataManager :
             else :
                 for cve in cves :
                     new_lines.append(self.CreateRow(entry, cve))
-        if new_lines:
-            df_new = pd.DataFrame(new_lines)
+        return new_lines
+    
+    def TransformToDataFrame(self, new_lines: list[dict[str, Any]]) -> pd.DataFrame :
+        df_new = pd.DataFrame(new_lines)
 
-            if not self.Data.empty and set(["ID ANSSI", "CVE"]).issubset(self.Data.columns):
-                existing_pairs = set()
-                for _, r in self.Data[["ID ANSSI", "CVE"]].dropna().iterrows():
-                    existing_pairs.add((r["ID ANSSI"], r["CVE"]))
+        if not self.Data.empty and set(["ID ANSSI", "CVE"]).issubset(self.Data.columns):
+            existing_pairs = set()
+            for _, r in self.Data[["ID ANSSI", "CVE"]].dropna().iterrows():
+                existing_pairs.add((r["ID ANSSI"], r["CVE"]))
 
-                def is_new_row(r):
-                    return (r.get("ID ANSSI"), r.get("CVE")) not in existing_pairs
+            def is_new_row(r):
+                return (r.get("ID ANSSI"), r.get("CVE")) not in existing_pairs
 
-                df_to_append = df_new[df_new.apply(is_new_row, axis=1)]
-            else:
-                df_to_append = df_new
+            df_to_append = df_new[df_new.apply(is_new_row, axis=1)]
+        else:
+            df_to_append = df_new
+        return df_to_append
 
-            self.EnrichAllCVE(df_to_append)
-            if not df_to_append.empty:
+
+    def InsertRow(self, row) -> None :
+        if not row.empty:
                 write_header = not os.path.exists(self.csv_file_path) or os.path.getsize(self.csv_file_path) == 0
-                df_to_append.to_csv(self.csv_file_path, sep=';', index=False, mode='a', header=write_header)
+                row.to_csv(self.csv_file_path, sep=';', index=False, mode='a', header=write_header)
 
                 if self.Data.empty:
-                    self.Data = df_to_append.reset_index(drop=True)
+                    self.Data = row.reset_index(drop=True)
                 else:
-                    self.Data = pd.concat([self.Data, df_to_append], ignore_index=True)
+                    self.Data = pd.concat([self.Data, row], ignore_index=True)
+
 
     def GetAllCERTFR(self, url: str) -> List[Any]:
         self.CERTFRs = Requester(url).request()
@@ -123,15 +130,18 @@ class DataManager :
                 continue
 
             print(f"Enrichissement de {cve_id}...")
-            
+
             # 1. Récupération des données MITRE (CVSS et CWE)
             mitre_data = self.get_mitre_data(cve_id)
-            
+
             # 2. Récupération des données EPSS (Probabilité d'exploitation)
             epss_score = self.get_epss_data(cve_id)
 
             # Mise à jour du DataFrame
             df.at[index, 'CVSS'] = mitre_data.get('cvss')
+            df.at[index, 'Produit'] = mitre_data.get('product')
+            df.at[index, 'Éditeur'] = mitre_data.get('vendor')
+            df.at[index, 'Versions'] = mitre_data.get('version')
             df.at[index, 'Base Severity'] = self.get_severity_label(mitre_data.get('cvss'))
             df.at[index, 'CWE'] = mitre_data.get('cwe')
             df.at[index, 'EPSS'] = epss_score
@@ -141,7 +151,7 @@ class DataManager :
             #Rate Limiting 
             time.sleep(2) 
 
-        # resumé des données enrichies 
+        # resumé des données enrichies
         #print(df[['CVE', 'Base Severity', 'CWE', 'EPSS']].head())
         #print(df.describe())
         #print(df['Base Severity'].value_counts())
@@ -150,7 +160,7 @@ class DataManager :
         """Récupère CVSS, CWE et Description depuis l'API MITRE."""
         url = f"https://cveawg.mitre.org/api/cve/{cve_id}"
         data = Requester.json_details(url)
-        res = {'cvss': None, 'cwe': 'Non disponible', 'description': None}
+        res = {'cvss': None, 'cwe': 'Non disponible', 'description': None, 'product': [], 'vendor': [], 'version': []}
         
         try:
             if not data or "containers" not in data:
@@ -161,6 +171,20 @@ class DataManager :
             # Extraction de la description
             if "descriptions" in cna:
                 res['description'] = cna["descriptions"][0].get("value")
+            if 'affected' in cna :
+                for prod in cna['affected'] :
+                    prod_name = prod.get('product') or ''
+                    vend_name = prod.get('vendor') or ''
+                    if prod_name:
+                        res['product'].append(prod_name)
+                    if vend_name:
+                        res['vendor'].append(vend_name)
+
+                    versions = prod.get('versions', []) or []
+                    for version in versions:
+                        ver = version.get('lessThanOrEqual') or version.get('lessThan') or version.get('version')
+                        if ver:
+                            res['version'].append(ver)
 
             # Extraction du score CVSS (gestion des versions 3.1, 3.0 et 2.0)
             metrics = cna.get("metrics", [])
@@ -179,6 +203,13 @@ class DataManager :
         except Exception as e:
             print(f"Erreur MITRE pour {cve_id}: {e}")
         
+        if isinstance(res.get('product'), list):
+            res['product'] = ', '.join(dict.fromkeys([p for p in res['product'] if p]))
+        if isinstance(res.get('vendor'), list):
+            res['vendor'] = ', '.join(dict.fromkeys([v for v in res['vendor'] if v]))
+        if isinstance(res.get('version'), list):
+            res['version'] = ', '.join(dict.fromkeys([v for v in res['version'] if v]))
+
         return res
 
     def get_epss_data(self, cve_id: str) -> Any:
@@ -210,6 +241,7 @@ class DataManager :
             s = str(text)
             s = s.replace('\r', ' ').replace('\n', ' ')
             s = re.sub(r"\s+", ' ', s).strip()
+            return s
         except Exception:
             return text
 

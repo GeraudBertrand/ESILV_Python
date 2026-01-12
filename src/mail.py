@@ -1,29 +1,60 @@
 import smtplib
 from email.mime.text import MIMEText
+from typing import Optional
 
 
-class Mail :
+class Mail:
+    """Simple SMTP mail sender. Provide `from_mail` and `password`.
 
-    server : smtplib.SMTP
-    SERVER_MAIL = "smtp.gmail.com"
-    SERVER_PORT = 587
+    Example:
+        m = Mail(to_mail='user@example.com', from_mail='me@host', password='pwd')
+        m.send('Subject', 'Body text')
+    """
 
-    FROM_MAIL = ""
-    PASSWORD = ""
+    def __init__(
+        self,
+        from_mail: str,
+        password: str,
+        server: str = "smtp.gmail.com",
+        port: int = 587,
+    ):
+        self.server_addr = server
+        self.server_port = port
+        self.from_mail = from_mail
+        self.password = password
 
-    def __init__ (self, to_mail, from_mail=""):
-        self.server = smtplib.SMTP(self.SERVER_MAIL, self.SERVER_PORT)
-        if(len(from_mail) > 0) :
-            self.FROM_MAIL = from_mail
-        self.to = to_mail
-    
-    def send(self, to_email: str, subject: str, body:str):
+    def send(self, subject: str, body: str, to_email: str) -> bool:
+        """Send an email. Returns True on success, False on error."""
+
         msg = MIMEText(body)
-        msg['From'] = self.FROM_MAIL
-        msg['To'] = to_email
-        msg['Subject'] = subject
+        msg["From"] = self.from_mail
+        msg["To"] = to_email
+        msg["Subject"] = subject
 
-        self.server.starttls()
-        self.server.login(self.FROM_MAIL, self.PASSWORD)
-        self.server.sendmail(self.FROM_MAIL, to_email, msg.as_string())
-        self.server.quit()
+        try:
+            server = smtplib.SMTP(self.server_addr, self.server_port, timeout=10)
+            server.ehlo()
+            server.starttls()
+            server.login(self.from_mail, self.password)
+            server.sendmail(self.from_mail, [to_email], msg.as_string())
+            server.quit()
+            return True
+        except Exception as e:
+            print(f"Erreur envoi mail vers {to_email}: {e}")
+            return False
+        
+    def body_template(self) -> str :
+        """
+        Generate a body mail for notification of vulnerability
+        """
+        body = (
+            "Une nouvelle vulnérabilité critique a été détectée:\n\n"
+            "ID: {id_anssi}\n"
+            "Titre: {title}\n"
+            "Date: {date}\n"
+            "CVE: {cve}\n"
+            "CVSS: {cvss}\n"
+            "Lien: {link}\n\n"
+            "Description:\n{description}\n"
+        )
+        return body
