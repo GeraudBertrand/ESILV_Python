@@ -71,3 +71,6 @@ CERTFR-2025-ALE-013;[MàJ] Multiples vulnérabilités dans Cisco ASA et FTD (25 
 CERTFR-2025-ALE-013;[MàJ] Multiples vulnérabilités dans Cisco ASA et FTD (25 septembre 2025);alerte;Thu, 25 Sep 2025 00:00:00 +0000;CVE-2025-20362;6.5;Medium;CWE-862;0.340550000;https://www.cert.ssi.gouv.fr/alerte/CERTFR-2025-ALE-013/;
 CERTFR-2025-ALE-014;[MàJ] Vulnérabilité dans React Server Components (05 décembre 2025);alerte;Fri, 05 Dec 2025 00:00:00 +0000;CVE-2025-55182;10;Critical;Non disponible;0.505380000;https://www.cert.ssi.gouv.fr/alerte/CERTFR-2025-ALE-014/;
 CERTFR-2025-ALE-014;[MàJ] Vulnérabilité dans React Server Components (05 décembre 2025);alerte;Fri, 05 Dec 2025 00:00:00 +0000;CVE-2025-66478;;Inconnu;Non disponible;;https://www.cert.ssi.gouv.fr/alerte/CERTFR-2025-ALE-014/;
+CERTFR-2024-ALE-003;[MàJ] Incident affectant les solutions AnyDesk (05 février 2024);alerte;Mon, 05 Feb 2024 00:00:00 +0000;;;;;;https://www.cert.ssi.gouv.fr/alerte/CERTFR-2024-ALE-003/;
+CERTFR-2025-ALE-004;Activités de post-exploitation dans Fortinet FortiGate (11 avril 2025);alerte;Fri, 11 Apr 2025 00:00:00 +0000;;;;;;https://www.cert.ssi.gouv.fr/alerte/CERTFR-2025-ALE-004/;
+CERTFR-2025-ALE-011;Incidents de sécurité dans les pare-feux SonicWall (05 août 2025);alerte;Tue, 05 Aug 2025 00:00:00 +0000;;;;;;https://www.cert.ssi.gouv.fr/alerte/CERTFR-2025-ALE-011/;

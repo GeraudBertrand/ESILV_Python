@@ -7,4 +7,5 @@ URL_AVIS = "https://cert.ssi.gouv.fr/avis/feed/"
 if __name__ == "__main__":
     manager = DataManager()
     manager.Step(URL_ALERTE)
+    #manager.Step(URL_AVIS)
     #manager.EnrichAllCVE()
