@@ -11,7 +11,7 @@ URL_AVIS = "https://cert.ssi.gouv.fr/avis/feed/"
 SLEEP_INTERNAL = 600
 
 
-def Step(manager: DataManager, url:str) -> list[dict[str, Any]] :
+def Step(manager: DataManager, url:str) -> pd.DataFrame :
     manager.GetAllCERTFR(url)
     lines = manager.InsertNewData()
     if(lines):
@@ -19,8 +19,8 @@ def Step(manager: DataManager, url:str) -> list[dict[str, Any]] :
         manager.EnrichAllCVE(df_new)
 
         manager.InsertRow(df_new)
-        return lines
-    return []
+        return df_new
+    return None
 
 
 def NotifyUsersForCriticalVulnerability(mail: Mail, users: list[dict[str, Any]], df: pd.DataFrame) -> None:
@@ -82,24 +82,25 @@ if __name__ == "__main__":
 
     mailSender = Mail("esilv4473@gmail.com", "Es1lv@2026")
     manager = DataManager()
-    Step(manager, URL_ALERTE)
+    Step(manager, URL_AVIS)
 
-    print("🚀 Surveillance du flux RSS activée...")
+    print("# Surveillance du flux RSS activée...")
 
-    # while True :
-    #     try :
-    #         data = Step(manager, URL_ALERTE)
-    #         if(data):
-    #             try:
-    #                 NotifyUsersForCriticalVulnerability(mailSender, users, data)
-    #             except Exception as e:
-    #                 print(f"Erreur lors de la notification des utilisateurs: {e}")
-
-    #         print(f"💤 Sommeil pour {CHECK_INTERVAL}s...")
-    #         time.sleep(SLEEP_INTERNAL)
-    #     except KeyboardInterrupt:
-    #             print("Stopping monitor...")
-    #             break
-    #     except Exception as e:
-    #         print(f"Erreur lors de la surveillance : {e}")
-    #         time.sleep(60)
+    while True :
+        try :
+            data = Step(manager, URL_ALERTE)
+            if(data is not None and not data.empty):
+                try:
+                    NotifyUsersForCriticalVulnerability(mailSender, users, data)
+                except Exception as e:
+                    print(f"Erreur lors de la notification des utilisateurs: {e}")
+            else :
+                print("Aucune nouvelle donnée à vérifier.")
+            print(f"# Sommeil pour {SLEEP_INTERNAL}s...")
+            time.sleep(SLEEP_INTERNAL)
+        except KeyboardInterrupt:
+                print("Arrêt du moniteur...")
+                break
+        except Exception as e:
+            print(f"Erreur lors de la surveillance : {e}")
+            time.sleep(60)
