@@ -38,6 +38,7 @@ class Mail:
             server.starttls()
             server.login(self.from_mail, self.password)
             server.sendmail(self.from_mail, [to_email], msg.as_string())
+            print(f"Mail envoyé à {to_email} avec succès.")
             server.quit()
             return True
         except Exception as e:
