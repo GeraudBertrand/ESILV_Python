@@ -7,6 +7,10 @@ from pandas import Series
 class Mail:
     """Simple SMTP mail sender. Provide `from_mail` and `password`.
 
+    port : 587 - port TLS / 465 - port SSL
+    from_email : esilv4473@gmail.com - default email for project
+    password : pkqfjywhyejoeukq - app password
+
     Example:
         m = Mail(to_mail='user@example.com', from_mail='me@host', password='pwd')
         m.send('Subject', 'Body text')
@@ -17,7 +21,7 @@ class Mail:
         from_mail: str,
         password: str,
         server: str = "smtp.gmail.com",
-        port: int = 587,
+        port: int = 465,
     ):
         self.server_addr = server
         self.server_port = port
@@ -33,14 +37,17 @@ class Mail:
         msg["Subject"] = subject
 
         try:
-            server = smtplib.SMTP(self.server_addr, self.server_port, timeout=10)
+            server = smtplib.SMTP_SSL(self.server_addr, self.server_port, timeout=10)
             server.ehlo()
-            server.starttls()
+            #server.starttls()
             server.login(self.from_mail, self.password)
             server.sendmail(self.from_mail, [to_email], msg.as_string())
             print(f"Mail envoyé à {to_email} avec succès.")
             server.quit()
             return True
+        except smtplib.SMTPAuthenticationError as auth:
+            print(f"Erreur d'authentification : blocage par Google : {auth}")
+            return False
         except Exception as e:
             print(f"Erreur envoi mail vers {to_email}: {e}")
             return False

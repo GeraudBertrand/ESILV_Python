@@ -1,10 +1,11 @@
 import os
 import pandas as pd
 import re
-from typing import List, Dict, Any, Optional
 import time
+
+from pathlib import Path
+from typing import List, Dict, Any, Optional
 from requester import Requester
-from mail import Mail
 
 class DataManager :
 
@@ -15,15 +16,21 @@ class DataManager :
 
     Data : pd.DataFrame
 
-    def __init__(self, csv_file=None) -> None:
+    def __init__(self, csv_path=None) -> None:
         self.CERTFRs = []
         self.CVEs = []
 
-        self.csv_file_path = csv_file if (csv_file is not None and isinstance(csv_file, str)) else "data.csv"
+        if csv_path is not None :
+            self.csv_file_path = csv_path
+        else :
+            self.csv_file_path = Path(__file__).resolve().parent.parent / "data.csv"
+            if not self.csv_file_path.exists():
+                self.csv_file_path = Path.cwd() / "data.csv"
         try :
             # read using semicolon separator to match data.csv
             self.Data = pd.read_csv(self.csv_file_path, sep=';')
-        except :
+        except Exception as e :
+            print(f"Erreur lecture fichier data.csv : {e}")
             self.Data = pd.DataFrame()
 
     def InsertNewData(self) -> list[dict[str, Any]] :
