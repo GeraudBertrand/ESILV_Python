@@ -80,7 +80,7 @@ if __name__ == "__main__":
 
     users = pd.read_csv(users_path, sep=',').to_dict(orient='records')
 
-    mailSender = Mail("esilv4473@gmail.com", "Es1lv@2026")
+    mailSender = Mail("esilv4473@gmail.com", "Es1lv@2026","zouadimouad49@gmail.com")
     manager = DataManager()
     Step(manager, URL_AVIS)
 
