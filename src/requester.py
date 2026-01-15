@@ -5,7 +5,15 @@ from typing import List, Dict, Any
 import requests
 
 
-class Requester : 
+class Requester :
+  """
+  Classe de requête pour récupérer les données d'un flux RSS ou un JSON.
+
+  Attributes:
+    URL (str): L'URL du flux RSS ou JSON à interroger.
+    query (FeedParserDict): L'objet contenant les données récupérées du flux RSS.
+    entries (list): La liste des entrées extraites du flux RSS.
+  """
   URL : str
   query : FeedParserDict
   entries : list
@@ -15,7 +23,7 @@ class Requester :
       self.entries = []
 
   def request(self, url = None) -> List[Any]:
-    """ 
+    """
     Récupère toutes les données de l'url données et retourne un tableau de lien
 
     Args:
@@ -41,6 +49,16 @@ class Requester :
 
   @staticmethod
   def json_details( url: str) -> Dict[str, Any]:
+    """
+    Récupère un objet JSON depuis une URL donnée.
+    Méthode statique pour obtenir des détails JSON.
+
+    Args:
+        url (str): L'URL à interroger pour obtenir le JSON.
+
+    Returns:
+        Dict[str, Any]: L'objet JSON récupéré depuis l'URL.
+    """
     try :
       session = requests.Session()
       response = session.get(url)
