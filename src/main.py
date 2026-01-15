@@ -1,18 +1,22 @@
+import ast
+import os
 import time
+
+import pandas as pd
+
+from dotenv import load_dotenv
+from pathlib import Path
+from typing import Any
+
 from data import DataManager
 from mail import Mail
-from typing import Any
-from pathlib import Path
-import pandas as pd
-import os
-from dotenv import load_dotenv
 
 
 URL_ALERTE = "https://cert.ssi.gouv.fr/alerte/feed/"
 URL_AVIS = "https://cert.ssi.gouv.fr/avis/feed/"
 
 SLEEP_INTERNAL = 600
-TIME_DISTANCE = 3600 * 24  # 24 heure en secondes
+TIME_DISTANCE = 3600 * 24 * 5  # 24 heure en secondes
 
 
 def Step(manager: DataManager, url:str) -> pd.DataFrame :
@@ -71,14 +75,16 @@ def NotifyUsersForCriticalVulnerability(mail: Mail, users: list[dict[str, Any]],
             if not is_critical and not is_less_than_1_hour:
                 continue
 
-            product = str(row.get('Produit', ''))
+            product = str(row.get('Produits', ''))
             title = str(row.get('Titre ANSSI', ''))
 
             for user in users:
-                user_mail = user.get('mail') or user.get('email')
+                user_mail = user.get('mail')
                 if not user_mail:
                     continue
                 logiciels = user.get('logiciels', []) or []
+                if(not isinstance(logiciels, list) and isinstance(logiciels, str)):
+                    logiciels = ast.literal_eval(logiciels)
 
                 for logi in logiciels:
                     if not logi:
@@ -89,6 +95,7 @@ def NotifyUsersForCriticalVulnerability(mail: Mail, users: list[dict[str, Any]],
                         body =mail.body_template(row)
                         try:
                             mail.send(subject, body, user_mail)
+                            print(f"Email envoyé à {user_mail} sur le sujet {s}")
                         except Exception as e:
                             print(f"Erreur envoi notification vers {user_mail}: {e}")
                         break
@@ -120,7 +127,7 @@ if __name__ == "__main__":
                 try:
                     # Remplacer data par test_mail pour tester les notifications sur une alerte spécifique
                     # test_mail = manager.Data[manager.Data['ID ANSSI'] == 'CERTFR-2026-ALE-test']
-                    NotifyUsersForCriticalVulnerability(mailSender, users, data)           
+                    NotifyUsersForCriticalVulnerability(mailSender, users, data)
                 except Exception as e:
                     print(f"Erreur lors de la notification des utilisateurs: {e}")
             else :

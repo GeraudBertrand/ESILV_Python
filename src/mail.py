@@ -46,7 +46,10 @@ class Mail:
             bool: True si l'email a été envoyé avec succès, False sinon.
         """
 
-        msg = MIMEText(body)
+        if body.strip().startswith("<html>"):
+            msg = MIMEText(body, "html")
+        else:
+            msg = MIMEText(body, "plain")
         msg["From"] = self.from_mail
         msg["To"] = to_email
         msg["Subject"] = subject
