@@ -5,15 +5,20 @@ from pandas import Series
 
 
 class Mail:
-    """Simple SMTP mail sender. Provide `from_mail` and `password`.
+    """Simple classe pour envoyer des emails via SMTP. 
+    Accessible pour Gmail en utilisant les identifiants d'application dans le fichier .env
 
     port : 587 - port TLS / 465 - port SSL
-    from_email : esilv4473@gmail.com - default email for project
-    password : pkqfjywhyejoeukq - app password
 
     Example:
         m = Mail(to_mail='user@example.com', from_mail='me@host', password='pwd')
         m.send('Subject', 'Body text')
+
+    Args:
+        from_mail (str): Adresse e-mail de l'expéditeur.
+        password (str): Mot de passe de l'e-mail de l'expéditeur.
+        server (str, optional): Adresse du serveur SMTP. Par défaut "smtp.gmail.com".
+        port (int, optional): Port du serveur SMTP. Par défaut 465 (SSL).
     """
 
     def __init__(
@@ -29,7 +34,17 @@ class Mail:
         self.password = password
 
     def send(self, subject: str, body: str, to_email: str) -> bool:
-        """Send an email. Returns True on success, False on error."""
+        """
+        Envoie un email avec le sujet et le corps spécifiés à l'adresse e-mail donnée.
+
+        Args:
+            subject (str): Sujet de l'email.
+            body (str): Corps de l'email.
+            to_email (str): Adresse e-mail du destinataire.
+
+        Returns:
+            bool: True si l'email a été envoyé avec succès, False sinon.
+        """
 
         msg = MIMEText(body)
         msg["From"] = self.from_mail
@@ -39,7 +54,6 @@ class Mail:
         try:
             server = smtplib.SMTP_SSL(self.server_addr, self.server_port, timeout=10)
             server.ehlo()
-            #server.starttls()
             server.login(self.from_mail, self.password)
             server.sendmail(self.from_mail, [to_email], msg.as_string())
             print(f"Mail envoyé à {to_email} avec succès.")
@@ -51,13 +65,16 @@ class Mail:
         except Exception as e:
             print(f"Erreur envoi mail vers {to_email}: {e}")
             return False
-        
+
     def body_template(self, row) -> str :
         """
-        Generate a body mail for notification of vulnerability
+        Génère le corps HTML d'un email à partir d'une ligne de données.
 
         Args:
-            row (Series): A pandas Series representing a vulnerability entry.
+            row (Series): Une ligne de données contenant les informations nécessaires.
+
+        Returns:
+            str: Le corps HTML formaté de l'email.
         """
         anssi_id = row.get('ID ANSSI', '')
         date = row.get('Date', '')
@@ -69,44 +86,44 @@ class Mail:
 
         html = f"""
         <html>
-        <head>
-            <style>
-                .container {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }}
-                .header {{ background-color: #d9534f; color: white; padding: 20px; text-align: center; }}
-                .content {{ padding: 20px; }}
-                .field {{ margin-bottom: 10px; }}
-                .label {{ font-weight: bold; color: #555; }}
-                .description {{ background-color: #f9f9f9; padding: 15px; border-left: 4px solid #d9534f; margin-top: 20px; font-style: italic; }}
-                .footer {{ text-align: center; padding: 15px; font-size: 0.8em; color: #888; background-color: #eee; }}
-                .button {{ display: inline-block; padding: 10px 20px; margin-top: 15px; background-color: #d9534f; color: white; text-decoration: none; border-radius: 5px; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h2 style="margin:0;">Alerte de Sécurité ANSSI</h2>
-                </div>
-                <div class="content">
-                    <div class="field"><span class="label">ID ANSSI :</span> {anssi_id}</div>
-                    <div class="field"><span class="label">Titre :</span> {title}</div>
-                    <div class="field"><span class="label">Date :</span> {date}</div>
-                    <div class="field"><span class="label">CVE :</span> {cve}</div>
-                    <div class="field"><span class="label">Score CVSS :</span> <span style="color: #d9534f; font-weight: bold;">{cvss}</span></div>
-                    
-                    <div class="description">
-                        <span class="label">Description :</span><br>
-                        {desc}
+            <head>
+                <style>
+                    .container {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }}
+                    .header {{ background-color: #d9534f; color: white; padding: 20px; text-align: center; }}
+                    .content {{ padding: 20px; }}
+                    .field {{ margin-bottom: 10px; }}
+                    .label {{ font-weight: bold; color: #555; }}
+                    .description {{ background-color: #f9f9f9; padding: 15px; border-left: 4px solid #d9534f; margin-top: 20px; font-style: italic; }}
+                    .footer {{ text-align: center; padding: 15px; font-size: 0.8em; color: #888; background-color: #eee; }}
+                    .button {{ display: inline-block; padding: 10px 20px; margin-top: 15px; background-color: #d9534f; color: white; text-decoration: none; border-radius: 5px; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h2 style="margin:0;">Alerte de Sécurité ANSSI</h2>
                     </div>
-                    
-                    <div style="text-align: center;">
-                        <a href="{lien}" class="button">Consulter l'avis complet</a>
+                    <div class="content">
+                        <div class="field"><span class="label">ID ANSSI :</span> {anssi_id}</div>
+                        <div class="field"><span class="label">Titre :</span> {title}</div>
+                        <div class="field"><span class="label">Date :</span> {date}</div>
+                        <div class="field"><span class="label">CVE :</span> {cve}</div>
+                        <div class="field"><span class="label">Score CVSS :</span> <span style="color: #d9534f; font-weight: bold;">{cvss}</span></div>
+
+                        <div class="description">
+                            <span class="label">Description :</span><br>
+                            {desc}
+                        </div>
+
+                        <div style="text-align: center;">
+                            <a href="{lien}" class="button">Consulter l'avis complet</a>
+                        </div>
+                    </div>
+                    <div class="footer">
+                        Ce message est généré automatiquement par votre système de veille CERT-FR.
                     </div>
                 </div>
-                <div class="footer">
-                    Ce message est généré automatiquement par votre système de veille CERT-FR.
-                </div>
-            </div>
-        </body>
+            </body>
         </html>
         """
         return html

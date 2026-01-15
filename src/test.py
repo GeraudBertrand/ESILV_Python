@@ -8,20 +8,24 @@ from mail import Mail
 from data import DataManager
 
 def SendTestMail():
-    """Function to send a test email to verify mail sending functionality."""
+    """
+    Méthode pour tester l'envoi d'un e-mail vers l'adresse de l'envoyeur.
+    """
     load_dotenv()
 
     sender = os.getenv("MAIL_USER")
     password = os.getenv("MAIL_PWD")
     mail = Mail(from_mail=sender, password=password)
-    test_recipient = sender  # Sending test email to self
-    subject = "Test Email"
-    body = f"This is a test email to verify the mail sending functionality. \n Actual date : {time.time()}"
+    test_recipient = sender
+    subject = "Email Test"
+    body = f"Ceci est un e-mail de test. \n Date actuelle : {time.time()}"
     success = mail.send(subject, body, test_recipient)
-    assert success, "Failed to send test email."
+    assert success, "Erreur : L'e-mail de test n'a pas pu être envoyé."
 
 def ReadTestData():
-    """Function to read test data using DataManager."""
+    """
+    Méthode pour tester la lecture des données via DataManager.
+    """
     manager = DataManager()
 
     assert manager.Data is not None, "Failed to fetch data."
@@ -31,6 +35,10 @@ def ReadTestData():
 
 
 if __name__ == "__main__":
+    """
+    Zone de test pour les fonctionnalités d'envoi d'e-mail et de gestion des données.
+    Fichier à n'utiliser que pour vérifier si les modules fonctionnent correctement.
+    """
     print("Test zone")
 
     env_path = Path(__file__).resolve().parent.parent / ".env"

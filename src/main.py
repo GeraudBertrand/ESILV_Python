@@ -16,6 +16,21 @@ TIME_DISTANCE = 3600 * 24  # 24 heure en secondes
 
 
 def Step(manager: DataManager, url:str) -> pd.DataFrame :
+    """
+    Exécute une étape de récupération, transformation, enrichissement et insertion des données.
+    1. Récupère toutes les données du flux RSS.
+    2. Transforme les données brutes en lignes exploitables.
+    3. Transforme les nouvelles données en DataFrame.
+    4. Enrichit les données CVE via des API externes.
+    5. Insère les nouvelles lignes dans le csv.
+
+    Args:
+        manager (DataManager): Instance de DataManager pour gérer les données.
+        url (str): URL du flux RSS à traiter.
+
+    Returns:
+        pd.DataFrame: DataFrame des nouvelles données insérées.
+    """
     manager.GetAllCERTFR(url)
     lines = manager.InsertNewData()
     if(lines):
@@ -30,6 +45,11 @@ def Step(manager: DataManager, url:str) -> pd.DataFrame :
 def NotifyUsersForCriticalVulnerability(mail: Mail, users: list[dict[str, Any]], df: pd.DataFrame) -> None:
         """Analyse les lignes et envoie un mail aux utilisateurs dont les logiciels
         sont mentionnés dans le titre ou la description quand la vulnérabilité est critique.
+
+        Args:
+            mail (Mail): Instance de Mail pour envoyer les emails.
+            users (list[dict[str, Any]]): Liste des utilisateurs à notifier.
+            df (pd.DataFrame): DataFrame des nouvelles données à analyser.
         """
         if df is None or df.empty:
             return
@@ -89,7 +109,7 @@ if __name__ == "__main__":
     password =  os.getenv("MAIL_PWD")
     mailSender = Mail(from_mail= sender, password= password)
     manager = DataManager()
-    #Step(manager, URL_AVIS)
+    Step(manager, URL_AVIS)
 
     print("\n# Surveillance du flux RSS activée...\n")
 
@@ -98,9 +118,9 @@ if __name__ == "__main__":
             data = Step(manager, URL_ALERTE)
             if(data is not None and not data.empty):
                 try:
-                    # change data parameter to test with specific row
-                    test_mail = manager.Data[manager.Data['ID ANSSI'] == 'CERTFR-2026-ALE-test']
-                    NotifyUsersForCriticalVulnerability(mailSender, users, test_mail)           # data by default
+                    # Remplacer data par test_mail pour tester les notifications sur une alerte spécifique
+                    # test_mail = manager.Data[manager.Data['ID ANSSI'] == 'CERTFR-2026-ALE-test']
+                    NotifyUsersForCriticalVulnerability(mailSender, users, data)           
                 except Exception as e:
                     print(f"Erreur lors de la notification des utilisateurs: {e}")
             else :
