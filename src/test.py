@@ -22,7 +22,7 @@ def SendTestMail():
     mail = Mail(from_mail=sender, password=password)
     test_recipient = sender
     subject = "Email Test"
-    body = f"Ceci est un e-mail de test. \n Date actuelle : {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}"
+    body = f"Ceci est un e-mail de test. \n Date actuelle : {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
     success = mail.send(subject, body, test_recipient)
     assert success, "Erreur : L'e-mail de test n'a pas pu être envoyé."
 

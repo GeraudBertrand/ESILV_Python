@@ -16,7 +16,7 @@ URL_ALERTE = "https://cert.ssi.gouv.fr/alerte/feed/"
 URL_AVIS = "https://cert.ssi.gouv.fr/avis/feed/"
 
 SLEEP_INTERNAL = 600
-TIME_DISTANCE = 3600 * 24 * 5  # 24 heure en secondes
+TIME_DISTANCE = 3600 * 24 * 5  # 5 jours
 
 
 def Step(manager: DataManager, url:str) -> pd.DataFrame :
@@ -125,8 +125,6 @@ if __name__ == "__main__":
             data = Step(manager, URL_ALERTE)
             if(data is not None and not data.empty):
                 try:
-                    # Remplacer data par test_mail pour tester les notifications sur une alerte spécifique
-                    # test_mail = manager.Data[manager.Data['ID ANSSI'] == 'CERTFR-2026-ALE-test']
                     NotifyUsersForCriticalVulnerability(mailSender, users, data)
                 except Exception as e:
                     print(f"Erreur lors de la notification des utilisateurs: {e}")
